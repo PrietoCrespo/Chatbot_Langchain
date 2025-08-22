@@ -1,0 +1,12 @@
+docker
+langchain
+langchain-community
+langgraph
+langchain-ollama
+pypdf
+tiktoken
+weaviate-client
+langchain-weaviate
+PyMuPDF
+pillow
+gradio
