@@ -8,10 +8,14 @@ from langchain.chains.history_aware_retriever import create_history_aware_retrie
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
 # Configuración de memoria
-MAX_TOKENS = 300  # Límite antes de hacer resumen
-SUMMARY_SIZE = 500  # Tamaño aproximado del resumen
+MAX_TOKENS = os.getenv('MAX_TOKENS')  # Límite antes de hacer resumen
+SUMMARY_SIZE = os.getenv('SUMMARY_SIZE')  # Tamaño aproximado del resumen
+tokens = 0
 
 # Schema de funciones disponibles
 FUNCTION_SCHEMA = {
@@ -38,6 +42,7 @@ FUNCTION_SCHEMA = {
 def execute_function(function_name, parameters):
     """Ejecuta una función basada en el nombre y parámetros proporcionados"""
     if function_name == "suma":
+        print(f"Se ejecuta la funcion 'suma'")
         try:
             a = parameters.get("a", 0)
             b = parameters.get("b", 0)
@@ -96,7 +101,7 @@ def manage_memory(llm, chat_history):
     print(f"Tokens actuales: {current_tokens}")  # Para debug
     
     # Si excede el límite, hacer resumen
-    if current_tokens > MAX_TOKENS:
+    if current_tokens > int(MAX_TOKENS):
         print("Límite de tokens excedido. Resumiendo conversación...")
         summarized_history = summarize_conversation(llm, chat_history)
         return summarized_history
@@ -115,7 +120,6 @@ def initialize_rag():
         ("human", "{input}"),
     ])
     
-    # Crear el prompt del sistema con llaves escapadas
     system_prompt = """Eres un asistente que responde preguntas basándose en documentos PDF que pueden incluir texto e imágenes. 
 
     FUNCIONES DISPONIBLES:
@@ -126,7 +130,7 @@ def initialize_rag():
     INSTRUCCIONES:
     1. Responde únicamente usando la información del contexto proporcionado para preguntas sobre documentos.
     2. Si la pregunta no puede responderse con la información disponible, di que no tienes esa información en los documentos.
-    3. Si necesitas realizar cálculos matemáticos (sumas), puedes usar las funciones disponibles.
+    3. Si necesitas realizar cálculos matemáticos (sumas), USA las funciones disponibles.
     4. Para usar una función, responde ÚNICAMENTE con un JSON en este formato:
     {{
         "function_call": {{
@@ -156,7 +160,7 @@ def initialize_rag():
 
     return rag_chain, llm
 
-def process_question(message, history):
+def process_question(message):
     """
     Procesa una pregunta usando el sistema RAG y mantiene el historial con memoria dinámica
     Incluye soporte para function calling
@@ -174,7 +178,7 @@ def process_question(message, history):
             "chat_history": chat_history
         })
         
-        # Procesar la respuesta (eliminar etiquetas de pensamiento si existen)
+        # Procesar la respuesta 
         respuesta = response['answer']
         if '</think>' in respuesta:
             respuesta = respuesta.split('</think>')[-1].strip()
@@ -237,19 +241,17 @@ def get_memory_stats():
     return f"Tokens: {tokens}/{MAX_TOKENS} | Mensajes: {messages}"
 
 # Crear la interfaz de Gradio
-with gr.Blocks(title="Sistema RAG con Function Calling", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🤖 Sistema RAG con Function Calling")
-    gr.Markdown("Haz preguntas sobre tus documentos y realiza cálculos matemáticos. El modelo puede usar funciones automáticamente.")
+with gr.Blocks(title="Chatbot RAG con funciones", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# Chatbot RAG con funciones")
     
     # Mostrar funciones disponibles
     gr.Markdown("### Funciones disponibles:")
     gr.Markdown("- **suma(a, b)**: Suma dos números")
-    gr.Markdown("*Ejemplos: '¿Cuánto es 15 + 27?', 'Suma 100 y 250', 'Calcula 45 + 33'*")
     
     # Indicador de memoria
     memory_info = gr.Textbox(
         label="Estado de la Memoria",
-        value="Tokens: 0/300 | Mensajes: 0",
+        value=f"Tokens: 0/{MAX_TOKENS} | Mensajes: 0", #TODO poner variable global para tokens
         interactive=False,
         max_lines=1
     )
@@ -262,7 +264,7 @@ with gr.Blocks(title="Sistema RAG con Function Calling", theme=gr.themes.Soft())
     
     with gr.Row():
         msg = gr.Textbox(
-            placeholder="Escribe tu pregunta aquí... (documentos o cálculos)",
+            placeholder="¿Qué quieres saber?",
             label="Tu pregunta",
             scale=4
         )
@@ -278,7 +280,7 @@ with gr.Blocks(title="Sistema RAG con Function Calling", theme=gr.themes.Soft())
             return chat_history_gradio, "", get_memory_stats()
         
         # Procesar la pregunta
-        bot_response = process_question(message, chat_history_gradio)
+        bot_response = process_question(message)
         
         # Actualizar el historial de Gradio
         chat_history_gradio.append((message, bot_response))
@@ -287,7 +289,7 @@ with gr.Blocks(title="Sistema RAG con Function Calling", theme=gr.themes.Soft())
     
     def clear_conversation():
         clear_chat()
-        return [], "", "Tokens: 0/300 | Mensajes: 0"
+        return [], "", f"Tokens: 0/{MAX_TOKENS} | Mensajes: 0"
     
     def refresh_memory_stats():
         return get_memory_stats()
@@ -317,12 +319,12 @@ with gr.Blocks(title="Sistema RAG con Function Calling", theme=gr.themes.Soft())
 
 if __name__ == "__main__":
     
-    rag_chain, llm = initialize_rag()  # Ahora retorna también el LLM
+    rag_chain, llm = initialize_rag()
 
     chat_history = []
     demo.launch(
-        server_name="0.0.0.0",  # Permite acceso desde otras IPs
-        server_port=7860,       # Puerto por defecto de Gradio
-        share=False,            # Cambiar a True si quieres un enlace público
-        debug=True              # Habilita el modo debug
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        debug=True
     )

@@ -10,3 +10,4 @@ langchain-weaviate
 PyMuPDF
 pillow
 gradio
+python-dotenv
