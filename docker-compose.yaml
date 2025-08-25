@@ -18,51 +18,28 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      
-      # Habilitar módulos API-based
       ENABLE_API_BASED_MODULES: 'true'
-      
-      # Configurar módulos de Ollama
       ENABLE_MODULES: 'text2vec-ollama,generative-ollama'
-      
-      # Configuración para text2vec-ollama
       TEXT2VEC_OLLAMA_DEFAULT_OLLAMA_ENDPOINT: 'http://ollama:11434'
-      
-      # Configuración para generative-ollama  
       GENERATIVE_OLLAMA_DEFAULT_OLLAMA_ENDPOINT: 'http://ollama:11434'
-      
       CLUSTER_HOSTNAME: 'node1'
     depends_on:
       - ollama
     
   ollama:
-    # Use the official latest image
     image: ollama/ollama:latest
-    # Define the container name for easy management
     container_name: ollama
-    # Set the restart policy: container restarts automatically unless manually stopped
     restart: unless-stopped
     environment:
-      # Configure allowed origins for accessing the Ollama API. '*' allows all origins.
-      # Note: For security reasons, specify concrete domains or IP addresses in production or security-sensitive scenarios. I use '*' here for convenience with LobeChat.
       - OLLAMA_ORIGINS=*
     ports:
-      # Map the host machine's port 11434 to the container's port 11434
       - "11434:11434"
     volumes:
-      # Mount the host machine's ~/.ollama/data directory to the container's /root/.ollama directory
-      # This is where Ollama stores model files and metadata, enabling persistent storage.
       - ~/.ollama/data:/root/.ollama
     deploy:
-      # --- Resource Deployment Configuration Section ---
       resources:
         reservations:
-          # GPU resource reservation configuration (Enable only if needed and an NVIDIA GPU is configured)
           devices:
-            # Specify using the nvidia driver
             - driver: nvidia
-              # Use all detected NVIDIA GPUs
               count: all
-              # Request GPU capabilities
               capabilities: [gpu]
-      # --- End of GPU Configuration Section ---
